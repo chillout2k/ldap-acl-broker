@@ -11,10 +11,12 @@ Depends on:
 # Developing
 ## Prepare env
 ```
-export LDAP_URI=ldap://###
+export LDAP_URI=ldap://your-ldap-server-with-lam-schema
 export LDAP_BINDDN=uid=###
 export LDAP_BINDPW=###
-export LDAP_BASE=ou=lam,ou=services,dc=zwackl,dc=de
+export LDAP_BASE=ou=lam,ou=services,dc=xyz
+export MAILSERVER_HOST=some.mail.relay
+export MAILSERVER_PORT=465
 ```
 ## provision
 ```

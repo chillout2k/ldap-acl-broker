@@ -16,8 +16,5 @@ class AlreadyExistsException(LABException):
 class NotFoundException(LABException):
   pass
 
-class BadInputException(LABException):
-  pass
-
 class BackendException(LABException):
   pass

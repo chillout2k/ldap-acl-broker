@@ -45,7 +45,7 @@ class LDAP_BACKEND:
         {
           'policyID': instance_id, 
           'allowedSenders': policy_dict['sender_email_address'],
-          'userPassword': 'password-is-set-with-binding'
+          'userPassword': policy_dict['pass_before_bind']
         }
       )
     except LDAPEntryAlreadyExistsResult as e:
@@ -63,8 +63,7 @@ class LDAP_BACKEND:
         "(allowedSaslUser=*)",
         attributes=['allowedSaslUser']
       )
-      print("Entries: {}".format(self.ldap_conn.entries))
-      if len(self.ldap_conn.entries) == 0:
+      if self.ldap_conn.entries[0]['allowedSaslUser'][0] == '':
         return False
       return True
     except LDAPNoSuchObjectResult as e:

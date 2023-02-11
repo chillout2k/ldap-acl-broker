@@ -1,7 +1,6 @@
 import sys
 import os
 from typing import Union, List
-import openbrokerapi
 from openbrokerapi import api
 from openbrokerapi.api import ServiceBroker
 from openbrokerapi.catalog import (
@@ -19,13 +18,16 @@ from openbrokerapi.service_broker import (
   UnbindSpec
 )
 from openbrokerapi.errors import (
-  ErrBadRequest, ErrInstanceAlreadyExists, ErrInstanceDoesNotExist, ErrBindingAlreadyExists
+  ErrBadRequest, ErrInstanceAlreadyExists, ErrInstanceDoesNotExist, 
+  ErrBindingAlreadyExists, ErrBindingDoesNotExist
 )
 from exceptions import (
   BackendException, ConfigException, AlreadyExistsException, NotFoundException
 )
 import ldap_backend
 import config
+import random
+import string
 
 try:
   config.check_config()
@@ -98,11 +100,16 @@ class EmailPolicyBroker(ServiceBroker):
     print("provisionDetails: {}".format(details.__dict__))
     self.check_request_details(details)
 
+    pass_before_bind = 'not_bound_yet_'.join(
+      random.choice(string.ascii_lowercase + string.digits) for _ in range(8)
+    )
+
     try:
       g_ldap_conn.add_policy(
         instance_id,
         {
-          "sender_email_address": details.parameters['sender_email_address']
+          "sender_email_address": details.parameters['sender_email_address'],
+          "pass_before_bind": pass_before_bind
         }
       )
     except AlreadyExistsException as e:
@@ -143,9 +150,18 @@ class EmailPolicyBroker(ServiceBroker):
     **kwargs
   ) -> Binding:
     self.check_request_details(details)
+    print("bind details: {}".format(details.__dict__))
 
-    gen_user_id = 'some_random_user'
-    gen_user_pass = 'blubb1234!'
+    gen_user_id = ''.join(
+      random.choice(string.ascii_lowercase + string.digits) for _ in range(8)
+    )
+
+    pass_after_bind = ''.join(
+      random.choice(
+        string.ascii_lowercase + string.digits + string.ascii_uppercase + string.punctuation
+      ) for _ in range(16)
+    )
+
     try:
       if g_ldap_conn.is_user_id(instance_id):
         raise ErrBindingAlreadyExists()
@@ -154,7 +170,7 @@ class EmailPolicyBroker(ServiceBroker):
         instance_id, 
         {
           "user_id": gen_user_id,
-          "user_pass": gen_user_pass
+          "user_pass": pass_after_bind
         }
       )
     except NotFoundException as e:
@@ -164,8 +180,10 @@ class EmailPolicyBroker(ServiceBroker):
 
     return Binding(
       credentials={
+        "tls": True,
+        "tls_condition": "MUST",
         "user_id": gen_user_id,
-        "user_pass": gen_user_pass,
+        "user_pass": pass_after_bind,
         "host": os.environ['MAILSERVER_HOST'],
         "port": os.environ['MAILSERVER_PORT']
       }
@@ -179,9 +197,35 @@ class EmailPolicyBroker(ServiceBroker):
     async_allowed: bool, 
     **kwargs
   ) -> UnbindSpec:
-    return UnbindSpec()
+    self.check_request_details(details)
+
+    try:
+      if g_ldap_conn.is_user_id(instance_id) == False:
+        raise ErrBindingDoesNotExist()
+
+      pass_after_unbind = 'unbound_'.join(
+        random.choice(
+          string.ascii_lowercase + string.digits + string.ascii_uppercase + string.punctuation
+        ) for _ in range(16)
+      )
+
+      g_ldap_conn.set_credentials(
+        instance_id, 
+        {
+          "user_id": '',
+          "user_pass": pass_after_unbind
+        }
+      )
+    except NotFoundException as e:
+      raise ErrInstanceDoesNotExist() from e
+    except BackendException as e:
+      raise ErrBadRequest("bind(): {}".format(e)) from e
+
+    return UnbindSpec(is_async=False)
 
 print('Start server on 127.0.0.1:5000')
 
 # Simply start the server
-api.serve(EmailPolicyBroker(), api.BrokerCredentials("blah", "blubb"))
+api.serve(EmailPolicyBroker(), api.BrokerCredentials(
+  os.environ['BROKER_USER'], os.environ['BROKER_PASS']
+))

@@ -24,3 +24,9 @@ def check_config():
   if 'MAILSERVER_PORT' not in os.environ:
     raise ConfigException("ENV[MAILSERVER_PORT] is mandatory!")
   print("ENV[MAILSERVER_PORT]: {}".format(os.environ['MAILSERVER_PORT']))
+
+  if 'BROKER_USER' not in os.environ:
+    raise ConfigException("ENV[BROKER_USER] is mandatory!")
+  
+  if 'BROKER_PASS' not in os.environ:
+    raise ConfigException("ENV[BROKER_PASS] is mandatory!")
